@@ -1,0 +1,2 @@
+fastapi uvicorn sqlalchemy pydantic python-multipart jinja2 aiofiles
+requests openai sentence-transformers faiss-cpu pandas
