@@ -1,0 +1,10 @@
+Role: Agentic AI Engineer
+
+Required Skills:
+- Python
+- LangChain
+- RAG
+- AWS
+
+Minimum Experience:
+3 years

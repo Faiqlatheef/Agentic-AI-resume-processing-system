@@ -1,0 +1,6 @@
+Hiring Policy:
+
+Candidates must have:
+- Minimum 3 years experience
+- Strong Python skills
+- Experience with RAG systems

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Agentic Resume Processor</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
+            background: #f4f6f9;
+            padding: 40px;
+        }
+
+        h1 { margin-bottom: 10px; }
+        .subtitle { color: #666; margin-bottom: 30px; }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            margin-top: 20px;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        .upload-box {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        button {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 8px;
+            background: #2563eb;
+            color: white;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        button:hover { background: #1d4ed8; }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .shortlisted { background: #dcfce7; color: #166534; }
+        .review { background: #fef9c3; color: #854d0e; }
+        .rejected { background: #fee2e2; color: #991b1b; }
+
+        .progress {
+            background: #e5e7eb;
+            border-radius: 8px;
+            height: 18px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            text-align: center;
+            color: white;
+            font-size: 12px;
+            line-height: 18px;
+            transition: width 0.8s ease-in-out;
+        }
+
+        .green { background: #22c55e; }
+        .yellow { background: #eab308; }
+        .red { background: #ef4444; }
+
+        .skills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .skill {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+
+        .skill-match {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .skill-missing {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        pre {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+
+        /* Spinner */
+        .spinner {
+            display: none;
+            margin-top: 20px;
+            border: 6px solid #f3f3f3;
+            border-top: 6px solid #2563eb;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Fade animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .expand-btn {
+            background: none;
+            border: none;
+            color: #2563eb;
+            cursor: pointer;
+            padding: 0;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .explain-panel {
+            display: none;
+            margin-top: 15px;
+        }
+    </style>
+
+    <script>
+        function showSpinner() {
+            document.getElementById("spinner").style.display = "block";
+        }
+
+        function toggleExplain() {
+            var panel = document.getElementById("explainPanel");
+            if (panel.style.display === "none") {
+                panel.style.display = "block";
+            } else {
+                panel.style.display = "none";
+            }
+        }
+    </script>
+</head>
+<body>
+
+<div style="display:flex; justify-content:space-between; align-items:center;">
+    <div>
+        <h1>Agentic Resume Processing System by FAIQ</h1>
+        <p class="subtitle">
+            AI-powered candidate extraction, RAG validation & intelligent routing
+        </p>
+    </div>
+
+    <div>
+        <a href="/dashboard">
+            <button style="background:#111827;">
+                View Dashboard
+            </button>
+        </a>
+    </div>
+</div>
+
+<div class="upload-box">
+    <form action="/upload" method="post" enctype="multipart/form-data" onsubmit="showSpinner()">
+        <input type="file" name="file" required>
+        <button type="submit">Process Resume</button>
+    </form>
+    <div id="spinner" class="spinner"></div>
+</div>
+
+{% if candidate %}
+
+<div class="card">
+    <h2>Candidate Overview</h2>
+    <p><strong>Name:</strong> {{ candidate.candidate_name }}</p>
+    <p><strong>Email:</strong> {{ candidate.email }}</p>
+    <p><strong>Experience:</strong> {{ candidate.years_of_experience }} years</p>
+    <p><strong>Extraction Confidence:</strong> {{ (candidate.extraction_confidence * 100) | round(1) }}%</p>
+</div>
+
+<div class="card">
+    <h2>Match Result</h2>
+
+    {% if match_result.recommendation == "Shortlisted" %}
+        <span class="badge shortlisted">Shortlisted</span>
+    {% elif match_result.recommendation == "Human Review" %}
+        <span class="badge review">Human Review</span>
+    {% else %}
+        <span class="badge rejected">Rejected</span>
+    {% endif %}
+
+    <p><strong>Review Reason:</strong> {{ match_result.review_reason }}</p>
+
+    {% set score = match_result.match_score * 100 %}
+    <div class="progress">
+        {% if score >= 85 %}
+            <div class="progress-bar green" style="width: {{ score }}%;">{{ score | round(1) }}%</div>
+        {% elif score >= 60 %}
+            <div class="progress-bar yellow" style="width: {{ score }}%;">{{ score | round(1) }}%</div>
+        {% else %}
+            <div class="progress-bar red" style="width: {{ score }}%;">{{ score | round(1) }}%</div>
+        {% endif %}
+    </div>
+
+    <button class="expand-btn" onclick="toggleExplain()">Explain Decision ▼</button>
+
+    <div id="explainPanel" class="explain-panel">
+        <p><strong>Required Skills (from RAG):</strong></p>
+        <ul>
+            {% for skill in required_skills %}
+                <li>{{ skill }}</li>
+            {% endfor %}
+        </ul>
+
+        <p><strong>Missing Skills:</strong></p>
+        <ul>
+            {% for skill in match_result.critical_skills_missing %}
+                <li>{{ skill }}</li>
+            {% endfor %}
+        </ul>
+
+        <p><strong>Experience Gap:</strong> {{ match_result.experience_gap }}</p>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Raw Structured Output</h2>
+    <pre>{{ candidate | tojson(indent=2) }}</pre>
+</div>
+
+{% endif %}
+
+</body>
+</html>
