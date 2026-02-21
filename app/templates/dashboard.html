@@ -37,8 +37,8 @@
 
 <div class="filters">
     <strong>Filter:</strong>
-    <a href="/dashboard">All</a>
-    <a href="/dashboard?status=Shortlisted">Shortlisted</a>
+    <a href="/dashboard?status=All">All</a>
+    <a href="/dashboard?status=Selected">Shortlisted</a>
     <a href="/dashboard?status=Human Review">Human Review</a>
     <a href="/dashboard?status=Rejected">Rejected</a>
 
@@ -52,25 +52,89 @@
         <th>Name</th>
         <th>Email</th>
         <th>Score</th>
+        <th>Decision</th>
         <th>Status</th>
         <th>Reason</th>
         <th>Latency (ms)</th>
         <th>Timestamp</th>
+        <th>Details</th>
     </tr>
 
     {% for r in records %}
     <tr>
-        <td>{{ r.name }}</td>
-        <td>{{ r.email }}</td>
-        <td>{{ (r.match_score * 100) | round(1) }}%</td>
+
+        <td>{{ r.name or "-" }}</td>
+
+        <td>{{ r.email or "-" }}</td>
+
+        <!-- Match Score -->
         <td>
-            <span class="badge {{ r.recommendation }}">
-                {{ r.recommendation }}
-            </span>
+            {% if r.match_score is not none %}
+                {{ (r.match_score * 100) | round(1) }}%
+            {% else %}
+                -
+            {% endif %}
         </td>
-        <td>{{ r.review_reason }}</td>
-        <td>{{ r.processing_time_ms }}</td>
+
+        <!-- Hiring Decision -->
+        <td>
+            {% if r.recommendation == "Selected" %}
+                <span class="badge bg-success">Selected</span>
+            {% elif r.recommendation == "Human Review" %}
+                <span class="badge bg-warning">Human Review</span>
+            {% elif r.recommendation == "Rejected" %}
+                <span class="badge bg-danger">Rejected</span>
+            {% else %}
+                -
+            {% endif %}
+        </td>
+
+        <!-- Processing Status -->
+        <td>
+            {% if r.status == "completed" %}
+                <span class="badge bg-success">Completed</span>
+            {% elif r.status == "processing" %}
+                <span class="badge bg-warning">Processing</span>
+            {% else %}
+                <span class="badge bg-danger">Failed</span>
+            {% endif %}
+        </td>
+
+        <!-- Review Reason -->
+        <td>
+            {% if r.review_reason %}
+                {{ r.review_reason }}
+            {% else %}
+                -
+            {% endif %}
+
+            {% if r.parsed_logs.missing_skills %}
+                <div style="margin-top:4px;">
+                    <span class="badge bg-danger">
+                        Missing: {{ r.parsed_logs.missing_skills | join(", ") }}
+                    </span>
+                </div>
+            {% endif %}
+        </td>
+
+        <!-- Latency -->
+        <td>
+            {% if r.processing_time_ms %}
+                {{ r.processing_time_ms | round(0) }}
+            {% else %}
+                -
+            {% endif %}
+        </td>
+
+        <!-- Timestamp -->
         <td>{{ r.created_at }}</td>
+
+        <td>
+            <a href="/tasks/{{ r.task_id }}" target="_blank">
+                View
+            </a>
+        </td>
+
     </tr>
     {% endfor %}
 </table>
