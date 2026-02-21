@@ -1,85 +1,159 @@
+import os
+import json
+import uuid
+from datetime import datetime
+
 from sqlalchemy import (
-    create_engine, Column, Integer, String,
-    Float, DateTime, Text
+    create_engine,
+    Column,
+    Integer,
+    String,
+    Float,
+    DateTime,
+    Text
 )
 from sqlalchemy.orm import declarative_base, sessionmaker
-from datetime import datetime
-from app.config import DB_PATH
-import uuid
 
-engine = create_engine(DB_PATH, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(bind=engine)
+
+# ==========================================
+# DATABASE LOCATION (database/candidatesdb.db)
+# ==========================================
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_FOLDER = os.path.join(BASE_DIR, "database")
+
+os.makedirs(DB_FOLDER, exist_ok=True)
+
+DATABASE_URL = f"sqlite:///{os.path.join(DB_FOLDER, 'candidatesdb.db')}"
+
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False}
+)
+
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine
+)
+
 Base = declarative_base()
 
 
-class TaskRecord(Base):
-    __tablename__ = "tasks"
-
-    id = Column(String, primary_key=True, index=True)
-    status = Column(String, default="pending")
-    source = Column(String)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    completed_at = Column(DateTime)
-    processing_time_ms = Column(Float)
-    reasoning_logs = Column(Text)
-
+# ==========================================
+# Candidate Table
+# ==========================================
 
 class CandidateRecord(Base):
     __tablename__ = "candidates"
 
     id = Column(Integer, primary_key=True, index=True)
-    task_id = Column(String)
+    task_id = Column(String, unique=True, index=True)
+
     name = Column(String)
     email = Column(String)
+
     match_score = Column(Float)
     recommendation = Column(String)
     review_reason = Column(String)
-    created_at = Column(DateTime, default=datetime.utcnow)
 
+    extracted_data = Column(Text)
+    reasoning_logs = Column(Text)
+
+    processing_time_ms = Column(Float)
+
+    status = Column(String)
+
+    created_at = Column(DateTime)
+    completed_at = Column(DateTime)
+
+
+# ==========================================
+# DB INIT
+# ==========================================
 
 def init_db():
     Base.metadata.create_all(bind=engine)
 
 
-def create_task(source):
+# ==========================================
+# TASK LIFECYCLE
+# ==========================================
+
+def create_task(source: str):
     db = SessionLocal()
+
     task_id = str(uuid.uuid4())
-    task = TaskRecord(id=task_id, source=source)
+
+    task = CandidateRecord(
+        task_id=task_id,
+        status="processing",
+        created_at=datetime.utcnow()
+    )
+
     db.add(task)
     db.commit()
     db.close()
+
     return task_id
 
 
-def update_task(task_id, status, processing_time_ms, reasoning_logs):
+def update_task_failure(task_id: str, error_message: str):
     db = SessionLocal()
-    task = db.query(TaskRecord).filter(TaskRecord.id == task_id).first()
-    task.status = status
-    task.processing_time_ms = processing_time_ms
-    task.reasoning_logs = reasoning_logs
-    task.completed_at = datetime.utcnow()
-    db.commit()
+
+    record = db.query(CandidateRecord).filter(
+        CandidateRecord.task_id == task_id
+    ).first()
+
+    if record:
+        record.status = "failed"
+        record.reasoning_logs = error_message
+        record.completed_at = datetime.utcnow()
+        db.commit()
+
     db.close()
 
 
-def get_task(task_id):
+def complete_task(
+    task_id,
+    name,
+    email,
+    match_score,
+    recommendation,
+    review_reason,
+    extracted_data,
+    reasoning_logs,
+    processing_time_ms
+):
     db = SessionLocal()
-    task = db.query(TaskRecord).filter(TaskRecord.id == task_id).first()
+
+    record = db.query(CandidateRecord).filter(
+        CandidateRecord.task_id == task_id
+    ).first()
+
+    if record:
+        record.name = name
+        record.email = email
+        record.match_score = match_score
+        record.recommendation = recommendation
+        record.review_reason = review_reason
+        record.extracted_data = json.dumps(extracted_data)
+        record.reasoning_logs = json.dumps(reasoning_logs)
+        record.processing_time_ms = processing_time_ms
+        record.status = "completed"
+        record.completed_at = datetime.utcnow()
+
+        db.commit()
+
     db.close()
-    return task
 
 
-def save_candidate(task_id, name, email,
-                   match_score, recommendation, review_reason):
+def get_task(task_id: str):
     db = SessionLocal()
-    record = CandidateRecord(
-        task_id=task_id,
-        name=name,
-        email=email,
-        match_score=match_score,
-        recommendation=recommendation,
-        review_reason=review_reason
-    )
-    db.add(record)
-    db.commit()
+
+    record = db.query(CandidateRecord).filter(
+        CandidateRecord.task_id == task_id
+    ).first()
+
     db.close()
+    return record
