@@ -223,6 +223,7 @@ def dashboard(request: Request, status: str = None):
 from fastapi.responses import StreamingResponse
 from io import StringIO
 import csv
+import json
 
 
 @app.get("/export-csv")
@@ -233,15 +234,11 @@ def export_csv(status: str = None):
     db = SessionLocal()
     query = db.query(CandidateRecord)
 
-    # Allow filtering by processing status OR recommendation
-    if status:
-        if status in ["processing", "completed", "failed"]:
-            query = query.filter(CandidateRecord.status == status)
-        else:
-            query = query.filter(CandidateRecord.recommendation == status)
+    # Correct filtering logic
+    if status and status != "All":
+        query = query.filter(CandidateRecord.recommendation == status)
 
     records = query.order_by(CandidateRecord.created_at.desc()).all()
-    db.close()
 
     output = StringIO()
     writer = csv.writer(output)
@@ -254,26 +251,36 @@ def export_csv(status: str = None):
         "Match Score",
         "Recommendation",
         "Status",
-        "Review Reason",
+        "Missing Skills",
         "Processing Time (ms)",
-        "Created At",
-        "Completed At"
+        "Created At"
     ])
 
-    # Rows
     for r in records:
+
+        # Extract missing skills from reasoning_logs
+        missing_skills = ""
+        try:
+            if r.reasoning_logs:
+                logs = json.loads(r.reasoning_logs)
+                missing = logs.get("missing_skills", [])
+                missing_skills = ", ".join(missing)
+        except:
+            pass
+
         writer.writerow([
             r.task_id,
-            r.name,
-            r.email,
+            r.name or "",
+            r.email or "",
             r.match_score,
             r.recommendation,
             r.status,
-            r.review_reason,
+            missing_skills,
             r.processing_time_ms,
-            r.created_at,
-            r.completed_at
+            r.created_at
         ])
+
+    db.close()
 
     output.seek(0)
 
